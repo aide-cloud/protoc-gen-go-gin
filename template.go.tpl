@@ -13,21 +13,86 @@ type {{ $.InterfaceName }} interface {
 {{end}}
 }
 
-func Register{{ $.InterfaceName }}(r gin.IRouter, srv {{ $.InterfaceName }}, resp {{ $.InterfaceName }}Response, bind {{ $.InterfaceName }}Bind) {
-	s := {{.Name}}{
-		server: srv,
-		router: r,
-		resp:   resp,
-		bind:   bind,
-	}
-	s.RegisterService()
-}
-
 type {{$.Name}} struct{
 	server {{ $.InterfaceName }}
 	router gin.IRouter
 	bind {{ $.InterfaceName }}Bind
 	resp {{ $.InterfaceName }}Response
+}
+
+type {{$.Name}}Option func(*{{$.Name}})
+
+type default{{ $.InterfaceName }}Bind struct{}
+
+type default{{ $.InterfaceName }}Response struct{}
+
+func (*default{{ $.InterfaceName }}Bind) Bind(c *gin.Context, params interface{}) error {
+	b := binding.Default(c.Request.Method, c.ContentType())
+	if err := c.ShouldBindWith(params, b); err != nil {
+		return err
+	}
+
+	if err := binding.Form.Bind(c.Request, params); err != nil {
+		return err
+	}
+
+	if err := c.ShouldBindUri(params); err != nil {
+		return err
+	}
+
+	if err := c.ShouldBindHeader(params); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (*default{{ $.InterfaceName }}Response) Success(c *gin.Context, data interface{}) {
+    c.JSON(200, data)
+}
+
+func (*default{{ $.InterfaceName }}Response) Failed(c *gin.Context, err error) {
+    if err == nil {
+        c.AbortWithStatus(500)
+        return
+    }
+    c.JSON(500, err.Error())
+}
+
+func New{{$.Name}}(server {{ $.InterfaceName }}, opts ...{{$.Name}}Option) *{{$.Name}} {
+    s := &{{$.Name}}{
+        server: server,
+        bind: &default{{ $.InterfaceName }}Bind{},
+        resp: &default{{ $.InterfaceName }}Response{},
+    }
+    for _, opt := range opts {
+        if opt != nil {
+            opt(s)
+        }
+    }
+    return s
+}
+
+func WithRouter(router gin.IRouter) {{$.Name}}Option {
+    return func(s *{{$.Name}}) {
+        s.router = router
+    }
+}
+
+func WithBind(bind {{ $.InterfaceName }}Bind) {{$.Name}}Option {
+    return func(s *{{$.Name}}) {
+        s.bind = bind
+    }
+}
+
+func WithResponse(resp {{ $.InterfaceName }}Response) {{$.Name}}Option {
+    return func(s *{{$.Name}}) {
+        s.resp = resp
+    }
+}
+
+func Register{{ $.InterfaceName }}(server *{{$.Name}}) {
+	server.RegisterService()
 }
 
 {{range .Methods}}
