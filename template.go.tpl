@@ -48,7 +48,11 @@ func (*default{{ $.InterfaceName }}Bind) Bind(c *gin.Context, params interface{}
 }
 
 func (*default{{ $.InterfaceName }}Response) Success(c *gin.Context, data interface{}) {
-    c.JSON(200, data)
+    c.JSON(200, gin.H{
+        "code": 0,
+        "msg": "success",
+        "data": data,
+    })
 }
 
 func (*default{{ $.InterfaceName }}Response) Failed(c *gin.Context, err error) {
@@ -56,7 +60,10 @@ func (*default{{ $.InterfaceName }}Response) Failed(c *gin.Context, err error) {
         c.AbortWithStatus(500)
         return
     }
-    c.JSON(500, err.Error())
+    c.JSON(500, gin.H{
+        "code": 500,
+        "msg": err.Error(),
+    })
 }
 
 func New{{$.Name}}(server {{ $.InterfaceName }}, opts ...{{$.Name}}Option) *{{$.Name}} {
